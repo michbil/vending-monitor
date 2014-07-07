@@ -120,7 +120,35 @@
 							
 						]
 					},
-					{ template:"Status", height:50 }
+					{ 
+						template:"Status",
+					    height:150,
+					    view:"chart",
+			            type:"line",
+			            value:"#sales#",
+			            item:{
+			                borderColor: "#1293f8",
+			                color: "#ffffff"
+			            },
+			            line:{
+			                color:"#1293f8",
+			                width:3
+			            },
+			            xAxis:{
+			                template:"'#timestamp#"
+			            },
+			            offset:0,
+			            yAxis:{
+			                start:0,
+			                end:1000,
+			                step:100,
+			                template:function(obj){
+			                    return (obj%20?"":obj)
+			                }
+			            },
+			            data: [],
+			            id: "graph"
+			        }
 				]
 			};
 			webix.ui(uiconfig);

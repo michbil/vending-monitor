@@ -53,6 +53,8 @@ function updateValue(set,param,val) {
 var app = {
 
     data: {},
+    queryRunning: false,
+    graphdata: [],
   
     // start the application
     start: function (deviceHive, deviceId) {
@@ -60,6 +62,7 @@ var app = {
         this.clearValues();
         // get device information
         var that = this;
+        that.deviceId = deviceId
         this.deviceHive.getDevice(deviceId)
             .done(function (device) {
                 that.device = device;
@@ -70,6 +73,37 @@ var app = {
                 setHeight(0);
             })
             .fail(that.handleError);
+        this.queryNotifications()
+    },
+
+    queryNotifications: function (equipment) {
+        if (this.queryRunning) {
+            console.log("another query running, wait please")
+            return;
+        }
+        url = this.deviceHive.serviceUrl + '/device/' + this.deviceId + '/notification?take=100&notification=equipment&Order=DESC'
+        console.log(url)
+        this.queryRunning = true;
+        this.graphdata = []
+        jqXhr = $.ajax({
+            url: url,
+            dataType: "json",
+            success: function (data) {
+                _.each(data, function (incomingNotification) {
+                    if (incomingNotification.parameters.id == equipment) {
+                        tuple = {"time":incomingNotification.timestamp,'value':incomingNotification.parameters.value}
+                        this.graphdata += tuple;
+                    }
+                });
+                console.log(graphdata)
+                $$("graph").add(graphdata)
+            },
+            complete: function () {
+                this.queryRunning = false;
+                console.log("completed")
+            },
+            
+        });
     },
 
     decodeEquipment: function(equipment,data) {
