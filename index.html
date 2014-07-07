@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8"> 
+		<link rel="stylesheet" href="codebase/webix.css" type="text/css" media="screen" charset="utf-8">
+
+
+		<script type="text/javascript" src="scripts/jquery-1.8.3.js"></script>
+    	<script type="text/javascript" src="scripts/devicehive.js"></script>
+    	<script type="text/javascript" src="scripts/application.js"></script>
+
+		<script type="text/javascript" src="./common/underscore.js"></script>
+		<script type="text/javascript" src="./common/backbone.js"></script>
+		<script src="codebase/webix_debug.js" type="text/javascript" charset="utf-8"></script>
+
+		<title>Мониторинг торговых автоматов</title>
+		<style type="text/css">
+			html, body{
+				height:100%; overflow: hidden;
+			}
+		</style>
+	</head>
+	<body style="margin:0px;">
+	
+	<script type="text/javascript">
+        
+        var deviceHive = new DeviceHive("http://kidgo.com.ua:8080/DeviceHiveJava/rest", "dhadmin", "dhadmin_#911");
+        var devices = [];
+        deviceHive.getDevices().done(function(result) {
+            	devices = JSON.stringify(result)
+
+            	var uiconfig={
+				rows:[
+					{ template:"Мониторинг торговых автоматов", height:50 },
+					{
+						cols:[
+							{ 
+							header:"Устройства", body:
+								{
+								view:"list", 
+								width:320,
+								template:"#name#",
+								select:true,
+								data:devices,
+								on:{
+									'onItemClick': function(e,v){
+									    app.start(deviceHive,e)
+									},
+								}
+ 
+								}
+							},
+							{ view:"resizer" },
+							
+							{
+							    view:"tabview",
+							    animate:true,
+							    cells:[
+							        {
+							         header:"Параметры",
+							         body:{
+							             view:"property",
+										  id:"basicsets", 
+										  elements:[
+												{ label:"Водяной бак", type:"label" },
+												{ label:"Уровень", type:"text", id:"level"},
+												{ label:"Объем", type:"text", id:"volume"},
+												{ label:"Температура", type:"text",id:"temperature"},
+												{ label:"Счетчик литров", type:"text",id:"counter"},
+												{ label:"После инкассации продано:", type:"label"},
+												{ label:"Литров", type:"text", id:"inc_liters", value: 250},
+												{ label:"Гривен", type:"text", id:"inc_hrn"},												
+										]
+							            }
+							        },
+							        {
+							         header:"Расширеные параметры",
+							         body:{
+							             view:"property",
+										  id:"extendedsets", 
+										  elements:[
+												{ label:"Дополниельно", type:"label" },
+												{ label:"Напряжение", type:"text",id:"voltage"},
+												{ label:"После полного", type:"text",id:"litersfromfull"},
+												{ label:"Флаги", type:"label" },
+												{ label:"FLAG_IDLE", type:"checkbox", id:"flag0"},
+												{ label:"FLAG_WAITMONEY", type:"checkbox", id:"flag1"},
+												{ label:"FLAG_POURWATER", type:"checkbox", id:"flag2"},
+												{ label:"FLAG_CALIBRATION", type:"checkbox", id:"flag3"},
+												{ label:"FLAG_CALIBRATIONLOCK", type:"checkbox", id:"flag4"},
+												{ label:"FLAG_UPPERLEVELLOCK", type:"checkbox", id:"flag5"},
+												{ label:"FLAG_NALIV", type:"checkbox", id:"flag6"},
+												{ label:"FLAG_OUT_ON", type:"checkbox", id:"flag7"},
+										]
+							            }
+							        },
+							        {
+							         header:"Ошибки",
+							         body:{
+							             view:"list",
+							             id:'errorlist',
+							             datatype:'json',
+							             template:"#error#",
+										 
+							            }
+							        },
+							        
+							    ]
+							},
+							  
+							//{},
+							{
+								id : "cnvs",
+								template:'<canvas id="myCanvas" width="240" height="330"></canvas>',
+								width:260,
+
+							},
+							
+
+							
+						]
+					},
+					{ template:"Status", height:50 }
+				]
+			};
+			webix.ui(uiconfig);
+			//view = new WebixView({config: uiconfig,el: "#maincont"}).render();
+			
+            })
+
+			
+
+
+			
+		</script>
+	</body>
+</html>
