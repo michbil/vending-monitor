@@ -55,6 +55,7 @@ var app = {
     data: {},
     queryRunning: false,
     graphdata: [],
+    timestamp: new Date(0),
   
     // start the application
     start: function (deviceHive, deviceId) {
@@ -73,6 +74,8 @@ var app = {
                 setHeight(0);
             })
             .fail(that.handleError);
+
+        this.timestamp= new Date(0);
         //this.queryNotifications("VOLUME_S");
     },
 
@@ -145,6 +148,16 @@ var app = {
         }
     },
 
+    register_time: function (time) {
+        t = new Date(time);
+        if (t > this.timestamp ) {
+            this.timestamp = t;
+            now = Date.now()
+            console.log((now - this.timestamp) / 1000 / 3600)
+        }
+
+    },
+
     // gets current led state
     getLedState: function (device) {
         var that = this;
@@ -152,6 +165,7 @@ var app = {
             .done(function (data) {
                 jQuery.each(data, function (index, equipment) {
                     that.decodeEquipment(equipment.id,equipment);
+                    that.register_time(equipment.timestamp);
                 });
             })
             .fail(that.handleError);
@@ -188,6 +202,7 @@ var app = {
 
 
         oldtick = tick;
+        that.register_time(notification.timestamp);
 
         if (notification.notification == "equipment") {
            

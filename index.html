@@ -44,7 +44,7 @@
 							header:"Устройства", body:
 								{
 								view:"list", 
-								width:320,
+								width:250,
 								template:"#name#",
 								select:true,
 								data:devices,
@@ -81,6 +81,20 @@
 							            }
 							        },
 							        {
+							         header:"Инкассации",
+							         body:{
+							             view:"property",
+										  id:"incassation", 
+										  nameWidth:250,
+										  elements:[
+												{ label:"И", type:"label" },
+												{ label:"Имя", type:"text",id:"name"},
+												{ label:"GUID", type:"text",id:"guid"},
+
+										]
+							            }
+							        },
+							        {
 							         header:"Расширеные параметры",
 							         body:{
 							             view:"property",
@@ -112,6 +126,22 @@
 										 
 							            }
 							        },
+							        {
+							         header:"Настройки",
+							         body:{
+							             view:"property",
+										  id:"settings", 
+										  nameWidth:250,
+										  elements:[
+												{ label:"Идентификация", type:"label" },
+												{ label:"Имя", type:"text",id:"name"},
+												{ label:"GUID", type:"text",id:"guid"},
+
+										]
+							            }
+							        },
+
+
 							        
 							    ]
 							},
@@ -124,7 +154,6 @@
 
 							},
 							
-
 							
 						]
 					},
