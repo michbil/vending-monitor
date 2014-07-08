@@ -73,10 +73,12 @@ var app = {
                 setHeight(0);
             })
             .fail(that.handleError);
-        this.queryNotifications()
+        //this.queryNotifications("VOLUME_S");
     },
 
     queryNotifications: function (equipment) {
+        var that = this;
+
         if (this.queryRunning) {
             console.log("another query running, wait please")
             return;
@@ -89,14 +91,18 @@ var app = {
             url: url,
             dataType: "json",
             success: function (data) {
+                var i = 0;
                 _.each(data, function (incomingNotification) {
-                    if (incomingNotification.parameters.id == equipment) {
-                        tuple = {"time":incomingNotification.timestamp,'value':incomingNotification.parameters.value}
-                        this.graphdata += tuple;
+                    if (incomingNotification.parameters.equipment == equipment) {
+                        var date = new Date(incomingNotification.timestamp)
+                        epoch = date.getTime()
+                        tuple = {"id":i++,"time":epoch,'value':incomingNotification.parameters.value}
+                        that.graphdata.push(tuple);
+                        
                     }
                 });
-                console.log(graphdata)
-                $$("graph").add(graphdata)
+                that.graphdata[0];
+                
             },
             complete: function () {
                 this.queryRunning = false;
