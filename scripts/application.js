@@ -50,12 +50,47 @@ function updateValue(set,param,val) {
     $$(set).setValues(v)
 }
 
-var app = {
+var app;
+
+function recalc_time () {
+
+
+
+        now = Date.now();
+
+
+
+        $.each(app.timestamps,function(a,b) {
+
+            then = Date.parse(b);
+            var seconds = (now - then) / 1000;
+            //console.log(this.formatTime(seconds));
+            var name = '#list'+a;
+
+            $(name).html(app.formatTime(seconds));
+            //setTimeout(recalc_time,1000);
+
+        })
+
+
+
+}
+
+litersafter=-1;
+moneyafter = -1;
+
+
+
+app = {
 
     data: {},
     queryRunning: false,
     graphdata: [],
-    timestamp: new Date(0),
+    timestamps: {},
+    readaddr:0,
+    readmax:0x400,
+    finishcallback:null,
+    eedata:new BinaryBuffer(2048),
   
     // start the application
     start: function (deviceHive, deviceId) {
@@ -68,14 +103,14 @@ var app = {
             .done(function (device) {
                 that.device = device;
                 that.updateDeviceInfo(device);
-                that.getLedState(device);
+                that.queryDeviceState(device);
                 that.subscribeNotifications(device);
-                that.bindLedControl();
                 setHeight(0);
             })
             .fail(that.handleError);
 
-        this.timestamp= new Date(0);
+
+        setInterval(recalc_time,3000);
         //this.queryNotifications("VOLUME_S");
     },
 
@@ -148,24 +183,67 @@ var app = {
         }
     },
 
-    register_time: function (time) {
-        t = new Date(time);
-        if (t > this.timestamp ) {
-            this.timestamp = t;
-            now = Date.now()
-            console.log((now - this.timestamp) / 1000 / 3600)
+    formatTime: function(seconds) {
+        if (seconds < 0) seconds = 0;
+
+        days = Math.floor(seconds/86400)
+        seconds = seconds-(days*86400);
+        hours = Math.floor(seconds/3600)
+        seconds = seconds-(hours*3600);
+        minutes = Math.floor(seconds/60)
+        seconds = seconds-(minutes*60);
+        
+      
+
+
+        if (days == 0) {
+
+            if (hours == 0) {
+
+                if (minutes == 0) {
+
+                    return "Онлайн";
+
+                } else {
+                    return minutes + "мин. ";
+                }
+
+            } else {
+                return hours + " ч.";
+            }
+
+        } else {
+            return days + " д. " + hours + ' ч.';
         }
 
     },
 
+
+
+    register_time: function (deviceid,time) {
+        t = Date.parse(time);
+        oldstamp = this.timestamps[deviceid]
+        if (oldstamp == undefined)  {
+            oldstamp = 0;
+        } else {
+            oldstamp = Date.parse(oldstamp)
+        }
+        if (oldstamp == undefined) oldstamp = 0;
+        if (t > oldstamp) {
+            //this.timestamp = t;
+            this.timestamps[deviceid]=time;
+        }
+    
+    },
+
     // gets current led state
-    getLedState: function (device) {
+    queryDeviceState: function (device) {
         var that = this;
         this.deviceHive.getEquipmentState(device.id)
             .done(function (data) {
                 jQuery.each(data, function (index, equipment) {
                     that.decodeEquipment(equipment.id,equipment);
-                    that.register_time(equipment.timestamp);
+                    that.register_time(device.id,equipment.timestamp);
                 });
             })
             .fail(that.handleError);
@@ -189,8 +267,46 @@ var app = {
             .fail(that.handleError);
     },
 
+    addConsole: function (t) {
+        $$('console').add({
+            text: t
+        })
+        console.log(t)
+    },
+    updateEepromTable: function (adr,values) {
+
+        col = Math.floor(adr/16)*16
+        stradr = col.toString(16).toUpperCase()
+        zeros = 4 - stradr.length
+        ressstr = "0x"
+        for (i=0;i<zeros;i++) ressstr = ressstr + '0';
+        ressstr += stradr
+
+        console.log(ressstr) 
+
+        that = this
+
+        obj = $$('hexeditor').getItem(ressstr)
+
+        if (obj != undefined) {
+            for (i=0;i<16;i++) {
+                index = 'b' + i.toString('10')
+                obj[index] = values[i].toString(16)
+                that.eedata.write(adr+i,values[i])
+
+            }
+            $$('hexeditor').refresh()
+        }
+        
+    },
+
     // handles incoming notification
     handleNotification: function (deviceId, notification) {
+
+        console.log(notification.notification)
+        this.register_time(deviceId,notification.timestamp);
+
+
 
         if (deviceId != currentId) return;
 
@@ -202,7 +318,8 @@ var app = {
 
 
         oldtick = tick;
-        that.register_time(notification.timestamp);
+        that = this;
+        
 
         if (notification.notification == "equipment") {
            
@@ -210,12 +327,17 @@ var app = {
 
         } else 
         if (notification.notification == "logline") {
-            $('#logbook').append(notification.parameters.line+'<br>')
-            $('#logbook').scrollTop($('#logbook')[0].scrollHeight);
+            this.addConsole(notification.parameters.line)
         }
         if (notification.notification == "eeblock") {
-
-            $('#logbook').append(notification.parameters.adr+" : "+notification.parameters.value+'<br>')
+           // this.addConsole(notification.parameters.adr+" : "+notification.parameters.value)
+           this.updateEepromTable(notification.parameters.adr,notification.parameters.value)
+           this.readaddr = this.readaddr + 16;
+           if (this.readaddr < this.readmax) {
+                that.deviceHive.sendCommand(that.device.id, "ReadEeprom", { adr: that.readaddr })
+           } else {
+            if (this.finishcallback) this.finishcallback();
+           }
             
         }
         
@@ -226,14 +348,33 @@ var app = {
         }
     },
 
-    // bind LED On/Off button click handler
-    bindLedControl: function () {
-        var that = this;
-        $(".send").click(function() {
+    readRange: function (start,end,callback) {
+
+        that = this;
+
+        if (start < end)  {
             console.log("reading...")
-            that.deviceHive.sendCommand(that.device.id, "ReadEeprom", { adr:0x110 })
+            that.readaddr = start;
+            that.readmax  = end;
+            that.deviceHive.sendCommand(that.device.id, "ReadEeprom", { adr: that.readaddr })
                 .fail(that.handleError);
-        });
+            this.finishcallback = callback;
+        }
+
+
+
+    },
+
+    // bind LED On/Off button click handler
+    readEE: function () {
+        var that = this;
+
+        webix.extend($$("hexeditor"), webix.ProgressBar);
+        $$("hexeditor").showProgress({  type:"icon", });
+
+        this.readRange (0,2048,null);
+
+        $$("hexeditor").hideProgress();
     },
 
     // updates device information on the page
@@ -288,9 +429,11 @@ var app = {
         
     },
     updateLitersAfterIncassation: function(value) {
+        litersafter=value;
         updateValue("basicsets","inc_liters",value+'л'); 
     },
     updateMoneyAfterIncassation: function(value) {
+        moneyafter=value;
         updateValue("basicsets","inc_hrn",value+"грн."); 
     },
     updateErrors: function(value) {
@@ -370,5 +513,55 @@ var app = {
 
     handleError: function (e, xhr) {
         alert(e);
+    },
+
+    parseEE: function() {
+    that = this;
+
+        
+
+       this.readRange(0x130,0x200,function() {
+            this.eedata.parse_contents(that)
+       });
+       
+        
+
+    },
+    resetDev: function () {
+        this.deviceHive.sendCommand(this.device.id, "Reset", {});
+    },
+    serviceMode: function (enable) {
+        var serviceModePass = "gnqYoo[14^^^1z/";
+        this.deviceHive.sendCommand(this.device.id, "ServiceMode", {"enter":enable,"pass":serviceModePass});
+    },
+    write_config: function () {
+        this.eedata.write_config(this)
+    },
+    read_incass: function() {
+
+        webix.extend($$("incassation"), webix.ProgressBar);
+
+        $$("incassation").showProgress({  type:"icon", });
+
+        this.readRange(0x90,0x100,function() {
+            $$('incassation').clearAll();
+
+        $$('incassation').add({
+            'no':'Грядущая',
+            'sum':moneyafter,
+            'liters':litersafter,
+            'price':100*(moneyafter/litersafter),
+        });
+
+        for (i=0;i<10;i++) {
+            item = this.eedata.read_incass(i);
+            if (item) $$('incassation').add(item);
+        }
+        
+        $$("incassation").hideProgress();
+
+        });
+        
     }
+
 }

@@ -7,6 +7,7 @@
 
 		<script type="text/javascript" src="scripts/jquery-1.8.3.js"></script>
     	<script type="text/javascript" src="scripts/devicehive.js"></script>
+    	<script type="text/javascript" src="scripts/binarybuffer.js"></script>
     	<script type="text/javascript" src="scripts/application.js"></script>
 
 		<script type="text/javascript" src="./common/underscore.js"></script>
@@ -37,15 +38,38 @@
 
             	var uiconfig={
 				rows:[
-					{ template:"Мониторинг торговых автоматов", height:50 },
+					{ cols:[
+						{ view:"button", id:"erase", value:"Стереть ошибки", type:"...",},
+						
+						{ view:"button", id:"reset", value:"Сброс устройства", type:"...",
+						click: function() {
+							app.resetDev();
+						 } 
+						},
+						{ view:"button", id:"ee_read", value:"Читать EEPROM", type:"...",  
+							click: function() {
+								app.readEE();
+							}					
+						},
+
+						{ view:"button", id:"enter_serv", value:"Сервис", type:"...",  
+							click: function() {
+								app.serviceMode();
+							}
+						},
+
+						{},
+
+						], height:50 },
 					{
 						cols:[
 							{ 
 							header:"Устройства", body:
 								{
 								view:"list", 
+								id:'devicelist',
 								width:250,
-								template:"#name#",
+								template:"#name# <span id='list#id#'style='background:lightblue;''> Оффлайн </span>",
 								select:true,
 								data:devices,
 								on:{
@@ -83,15 +107,24 @@
 							        {
 							         header:"Инкассации",
 							         body:{
-							             view:"property",
-										  id:"incassation", 
-										  nameWidth:250,
-										  elements:[
-												{ label:"И", type:"label" },
-												{ label:"Имя", type:"text",id:"name"},
-												{ label:"GUID", type:"text",id:"guid"},
-
-										]
+							         	rows: [
+							         	{ view:"button", id:"show_inc", value:"Чиатать", type:"...",  
+											click: function() {
+												app.read_incass();
+										}
+									    },
+							         	{
+							         		view:"datatable",
+										     id:"incassation", 
+										     columns: [
+										     {id:"no",footer:"Номер"},
+										     {id:"liters",footer:"Литров"},
+										     {id:"sum",footer:"Стоимость"},
+											 {id:"price",footer:"Цена за литр"},
+										     ],
+							         	}
+							         	]
+							             
 							            }
 							        },
 							        {
@@ -129,16 +162,96 @@
 							        {
 							         header:"Настройки",
 							         body:{
+							         	rows: [
+							         	{
+							         		cols: [
+							         		{ view:"button", id:"parse", value:"Читать", type:"...",
+												click: function () {
+													app.parseEE()
+												}
+											},
+											{view:"button",id:"write",value:"Записать",click:function() {
+													app.write_config();
+											}},
+											{},
+							         		]
+							         	},
+							         	{
 							             view:"property",
 										  id:"settings", 
 										  nameWidth:250,
 										  elements:[
-												{ label:"Идентификация", type:"label" },
-												{ label:"Имя", type:"text",id:"name"},
-												{ label:"GUID", type:"text",id:"guid"},
+												{ label:"Настройки датчиков", type:"label" },
+												{ label:"Коеффициент расходомера", type:"text",id:"counter_mul"},
+												{ label:"Коррекция объема", type:"text",id:"counter_add"},
+												{ label:"Коррекция датчика уровня", type:"text",id:"pressure_zero"},
 
-										]
+												{ label:"t включения ламп", type:"text",id:"temp1_on"},												
+												{ label:"t выключения ламп", type:"text",id:"temp1_off"},												
+
+												{ label:"t включения мата", type:"text",id:"temp2_on"},												
+												{ label:"t выключения мата", type:"text",id:"temp2_off"},	
+
+
+												{ label:"Цены, литров", type:"label" },										
+
+												{ label:"Литров за 0.50 коп", type:"text",id:"volume_50"},												
+												{ label:"Литров за 1.00 коп", type:"text",id:"volume_100"},												
+												{ label:"Литров за 1.50 коп", type:"text",id:"volume_150"},												
+												{ label:"Литров за 2.00 коп", type:"text",id:"volume_200"},												
+												{ label:"Литров за 2.50 коп", type:"text",id:"volume_250"},												
+												{ label:"Литров за 3.00 коп", type:"text",id:"volume_300"},												
+												{ label:"Макс сумма", type:"text",id:"maxmoney"},																								
+												{ label:"Наливать несколько бутылей", type:"text",id:"allowmany"},																								
+
+
+												{ label:"Идентификация", type:"label" },										
+												{ label:"Имя аппарата", type:"text",id:"NAME"},												
+												{ label:"GUID", type:"text",id:"GUID"},												
+
+
+										]}]
 							            }
+							        },
+							        {
+							         header:"Консоль",
+							         body:{
+							             view:"list",
+										  id:"console", 
+										  nameWidth:250,
+										  template:"#text#",
+							            }
+							        },
+							        {
+							        	header:"EEPROM",
+							        	body: {
+							        		view: 'datatable',
+							        		id:"hexeditor",
+							        		columns: [
+								        		{id:"adr",header:'',width:100,sort:"str"},
+								        		{id:"b0",header:'0',width:30,sort:"str"},
+								        		{id:"b1",header:'1',width:30,sort:"str"},
+								        		{id:"b2",header:'2',width:30,sort:"str"},
+								        		{id:"b3",header:'3',width:30,sort:"str"},
+								        		{id:"b4",header:'4',width:30,sort:"str"},
+								        		{id:"b5",header:'5',width:30,sort:"str"},
+								        		{id:"b6",header:'6',width:30,sort:"str"},
+								        		{id:"b7",header:'7',width:30,sort:"str"},
+								        		{id:"b8",header:'8',width:30,sort:"str"},
+								        		{id:"b9",header:'9',width:30,sort:"str"},
+								        		{id:"b10",header:'A',width:30,sort:"str"},
+								        		{id:"b11",header:'B',width:30,sort:"str"},
+								        		{id:"b12",header:'C',width:30,sort:"str"},
+								        		{id:"b13",header:'D',width:30,sort:"str"},
+								        		{id:"b14",header:'E',width:30,sort:"str"},
+								        		{id:"b15",header:'F',width:30,sort:"str"},
+								        		],
+								        	url:"datatemplate.json",
+	
+
+
+											
+							        	}
 							        },
 
 
@@ -157,7 +270,7 @@
 							
 						]
 					},
-					{ 
+					/*{ 
 						template:"Status",
 					    height:150,
 					    view:"chart",
@@ -185,7 +298,7 @@
 			            },
 			            data: [],
 			            id: "graph"
-			        }
+			        }*/
 				]
 			};
 			webix.ui(uiconfig);
@@ -194,7 +307,7 @@
             })
 
 			
-
+			
 
 			
 		</script>
